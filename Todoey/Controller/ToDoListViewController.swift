@@ -13,7 +13,13 @@ class ToDoListViewController: UITableViewController {
     
  var itemArray = [Item]()
     
-    let defaults = UserDefaults.standard //(1- presist data )
+    
+    //(1- presist data ) :
+    
+    let dataFilePath = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first?.appendingPathComponent("Items.plist")
+    
+    
+   
     
     override func viewDidLoad() {
         super.viewDidLoad()
@@ -21,30 +27,12 @@ class ToDoListViewController: UITableViewController {
         
         
         
-        let newItem = Item()
-        newItem.title = "find mike"
-        itemArray.append(newItem)
         
-        
-        
-        let newItem2 = Item()
-        newItem2.title = "buy eggs"
-        itemArray.append(newItem2)
-        
-        
-        let newItem3 = Item()
-        newItem3.title = "go home"
-        itemArray.append(newItem3)
-        
-        
+       
         //( 3- presist data)
-if let  items = defaults.array(forKey: "ToDoListArray") as? [Item]  {
-            
-            itemArray = items
+
         
-        
-        }
-        
+        loadItems()
         
         
         
@@ -110,6 +98,8 @@ if let  items = defaults.array(forKey: "ToDoListArray") as? [Item]  {
         
     itemArray[indexPath.row].Done = !itemArray[indexPath.row].Done
         
+        saveItems()
+        
         
         
 //        if itemArray[indexPath.row].Done == false {
@@ -137,8 +127,6 @@ if let  items = defaults.array(forKey: "ToDoListArray") as? [Item]  {
 //
         
         
-        
-        tableView.reloadData()
         tableView.deselectRow(at: indexPath, animated: true) // to make the ui more beutifull
         
         
@@ -168,9 +156,8 @@ if let  items = defaults.array(forKey: "ToDoListArray") as? [Item]  {
             
             self.itemArray.append(newItem)
             
-            self.defaults.set(self.itemArray, forKey: "ToDoListArray") //( 2- presist data)
+            self.saveItems()
             
-            self.tableView.reloadData()
             
         }
         
@@ -186,6 +173,64 @@ if let  items = defaults.array(forKey: "ToDoListArray") as? [Item]  {
         present(alert, animated: true, completion: nil)
         
     }
+    
+    
+    //MARK - Manupulation Method
+    
+    func saveItems() {
+        
+        
+        let encoder = PropertyListEncoder() //( 2- presist data)
+        
+        
+        do{
+            let data =  try encoder.encode(itemArray) //(3-presist data)
+            try data.write(to: dataFilePath!)
+            
+        }
+        catch{
+            
+            print("error")
+        }
+        
+        
+        tableView.reloadData()
+        
+        
+    }
+    
+  
+    
+    func loadItems() {
+        
+        
+        if let data:Data = try? Data(contentsOf: dataFilePath!) {
+            
+            
+            
+            let decoder = PropertyListDecoder()
+            
+            
+            do{
+            
+                itemArray = try! decoder.decode([Item].self, from: data)
+            
+            }
+            
+            catch
+            {
+                
+               print ("error decoding,\(error)")
+                
+            }
+        }
+        
+        
+    }
+    
+   
+    
+    
     
     
 }
