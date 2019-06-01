@@ -7,38 +7,55 @@
 //
 
 import UIKit
+import CoreData //(0- presist data)
 
 class ToDoListViewController: UITableViewController {
 
     
  var itemArray = [Item]()
     
+    var selectedCatego:Category? {
+        
+        didSet{  // (بنستخدم الطريقة دي معناها لما نضغط عليها الحاجة بتاعتنا تحمل )
+            
+            loadItems()
+            
+        }
+    }
+    
+    
+    
     
     //(1- presist data ) :
     
-    let dataFilePath = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first?.appendingPathComponent("Items.plist")
-    
-    
+
+         let context = (UIApplication.shared.delegate as! AppDelegate).persistentContainer.viewContext
    
+   // (بنستورد من الappDelegate الجزء بتاع الpresitent container )
+    
+    
+    
     
     override func viewDidLoad() {
         super.viewDidLoad()
         // Do any additional setup after loading the view, typically from a nib.
+   
+        
+       print(FileManager.default.urls(for: .documentDirectory, in: .userDomainMask))
         
         
-        
-        
-       
-        //( 3- presist data)
+      
+    
+        //( 4- presist data)
 
-        
-        loadItems()
-        
-        
+        let request : NSFetchRequest<Item> = Item.fetchRequest()
+     
         
     }
+        
+    
 
-   //1-MARK - table view data source
+    //1-MARK:- - table view data source
     
     override func tableView(_ tableView: UITableView, numberOfRowsInSection section: Int) -> Int {
         
@@ -63,9 +80,8 @@ class ToDoListViewController: UITableViewController {
         
         // value = condition ? valueTrue : valuseFlase
         
-        
-        
-        cell.accessoryType = myItem.Done==true ?.checkmark:.none
+         // to add check squre :
+        cell.accessoryType = myItem.done==true ?.checkmark:.none
         
         
         
@@ -83,20 +99,22 @@ class ToDoListViewController: UITableViewController {
     
     
     
-    //2-MARK - Table View Delegate Method (بيأكد ان المربع الي اخترته هو ده الصحيح او الي هعمل عليه الشغل بتاعي )
+    //2-MARK: - Table View Delegate Method (بيأكد ان المربع الي اخترته هو ده الصحيح او الي هعمل عليه الشغل بتاعي )
     
     override func tableView(_ tableView: UITableView, didSelectRowAt indexPath: IndexPath) {
         
         
        // print(itemArray[indexPath.row])
         
-        // to add check squre :
+       
+        context.delete(itemArray[indexPath.row]) //(1- delete item)
+        
+         itemArray.remove(at: indexPath.row) //(2- delete item)
+        
         
         // to deslect if we check twice on the same cell :
         
-        
-        
-    itemArray[indexPath.row].Done = !itemArray[indexPath.row].Done
+       itemArray[indexPath.row].done = !itemArray[indexPath.row].done
         
         saveItems()
         
@@ -105,7 +123,6 @@ class ToDoListViewController: UITableViewController {
 //        if itemArray[indexPath.row].Done == false {
 //
 //            itemArray[indexPath.row].Done = true
-//
 //        }
 //
 //        else {
@@ -117,7 +134,6 @@ class ToDoListViewController: UITableViewController {
 //
 //            tableView.cellForRow(at: indexPath)?.accessoryType = .none
 //        }
-//
 //
 //        else {
 //
@@ -135,7 +151,7 @@ class ToDoListViewController: UITableViewController {
         
     }
  
-    //3-MARK - : Add new items :
+    //3-MARK: - : Add new items :
     
     
     @IBAction func addButtonPRESSED(_ sender: UIBarButtonItem){
@@ -150,9 +166,14 @@ class ToDoListViewController: UITableViewController {
             // what will happen when the user clicks the add item alert on our uialert
             
             
-            let newItem = Item()
+            
+            
+            let newItem = Item(context:  self.context)   //(2- presist data) (it represents the data in each row of the table)
             newItem.title = textField.text!
             
+            newItem.done = false
+            
+            newItem.parentCategory = self.selectedCatego
             
             self.itemArray.append(newItem)
             
@@ -175,22 +196,23 @@ class ToDoListViewController: UITableViewController {
     }
     
     
-    //MARK - Manupulation Method
+    //MARK: - Manupulation Method to save and  load the items that saved in the data base
     
     func saveItems() {
         
-        
-        let encoder = PropertyListEncoder() //( 2- presist data)
-        
+  
         
         do{
-            let data =  try encoder.encode(itemArray) //(3-presist data)
-            try data.write(to: dataFilePath!)
+            
+            
+       
+
+           try context.save()   //(3- presist data )
             
         }
         catch{
             
-            print("error")
+            print("error saving context \(error)")
         }
         
         
@@ -199,39 +221,110 @@ class ToDoListViewController: UITableViewController {
         
     }
     
-  
+    // to load the saved data :
     
-    func loadItems() {
+    func loadItems(with request:NSFetchRequest<Item> = Item.fetchRequest(),predicate:NSPredicate?=nil) {
         
         
-        if let data:Data = try? Data(contentsOf: dataFilePath!) {
+        
+        
+        let categoryPredeicate = NSPredicate(format: "parentCategory.name MATCHES %@", selectedCatego!.name!)
+        
+        
+        
+        if let additionalPredicate = predicate{
             
+          request.predicate  = NSCompoundPredicate(andPredicateWithSubpredicates: [categoryPredeicate,additionalPredicate])
+        
+        }
+        else {
             
+            request.predicate=categoryPredeicate
             
-            let decoder = PropertyListDecoder()
-            
-            
-            do{
-            
-                itemArray = try! decoder.decode([Item].self, from: data)
-            
-            }
-            
-            catch
-            {
-                
-               print ("error decoding,\(error)")
-                
-            }
         }
         
+       // let compoundPredicate = NSCompoundPredicate(andPredicateWithSubpredicates:[categoryPredeicate,predicate!])
+        
+
+        do{
+        itemArray = try context.fetch(request)
+        }
+        catch{
+
+            print("error loading item \(error)")
+        }
+
+        tableView.reloadData()
         
     }
     
-   
+    
+        
+    }
+    
+//MARK: - Search bar method)
+
+     // to make a search for an item ! ?
+    
+              extension ToDoListViewController : UISearchBarDelegate {
     
     
     
+                      func searchBarSearchButtonClicked(_ searchBar: UISearchBar) {
     
-}
+                        let request :NSFetchRequest<Item>=Item.fetchRequest()
+                        
+                        let predicate = NSPredicate(format: "title CONTAINS[cd] %@", searchBar.text!)
+                        
+     
+                        
+                       request.sortDescriptors = [NSSortDescriptor(key: "title", ascending: true)]
+                        
+                      
+                        loadItems(with: request,predicate: predicate)
+                        
+                }
+                // 1-to return back to the item after doing search :
+                
+                
+                
+                
+                func searchBar(_ searchBar: UISearchBar, textDidChange searchText: String) {
+                    
+                    if searchBar.text?.count == 0 {
+                        
+                        loadItems()
+                        
+                        // 2-the next method is to tell the search bar to stop responding
+                        
+                        
+                        DispatchQueue.main.async {
+                            
+                                searchBar.resignFirstResponder()
+                            
+                        }
+                            
+                    
+                        
+                    }
+                    
+                    
+                }
+
+                     }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
